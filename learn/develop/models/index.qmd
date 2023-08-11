@@ -57,14 +57,14 @@ This article describes the process of creating a new model function. Before proc
 
 ## An example model
 
-As an example, we'll create a function for _mixture discriminant analysis_. There are [a few packages](http://search.r-project.org/cgi-bin/namazu.cgi?query=%22mixture+discriminant%22&max=100&result=normal&sort=score&idxname=functions) that implement this but we'll focus on `bcn::bcn`:
+As an example, we'll create a function for _Boosted Configuration Networks_. We'll focus on `bcn::bcn`:
 
 ```{r}
 #| label: "bcn-str"
 str(bcn::bcn)
 ```
 
-The main hyperparameter is the number of subclasses. We'll name our function `bcn_model`. 
+We'll name our function `bcn_model`. 
 
 ## Aspects of models
 
@@ -76,7 +76,7 @@ Before proceeding, it helps to to review how parsnip categorizes models:
 
 * The computation _engine_ is a combination of the estimation method and the implementation. For example, for linear regression, one engine is `"lm"` which uses ordinary least squares analysis via the `lm()` function. Another engine is `"stan"` which uses the Stan infrastructure to estimate parameters using Bayes rule. 
 
-When adding a model into parsnip, the user has to specify which modes and engines are used. The package also enables users to add a new mode or engine to an existing model. 
+**When adding a model into parsnip, the user has to specify which modes and engines are used**. The package also enables users to add a new mode or engine to an existing model. 
 
 ## The general process
 
@@ -89,7 +89,7 @@ If you are adding a new model from your own package, you can use these functions
 We will add the bcn model using the model type `bcn_model`. Since this is a classification method, we only have to register a single mode:
 
 ```{r}
-#| label: "bcn-reg"
+#| label: "bcn-clf"
 library(tidymodels)
 set_new_model("bcn_model")
 set_model_mode(model = "bcn_model", mode = "classification")
