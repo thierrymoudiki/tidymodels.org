@@ -20,14 +20,24 @@ source(here::here("common.R"))
 ```
 
 ```{r}
+# Enable repository from techtonique
+options(repos = c(
+  techtonique = 'https://techtonique.r-universe.dev',
+  CRAN = 'https://cloud.r-project.org'))
+  
+# Download and install bcn in R
+install.packages('bcn')
+```
+
+```{r}
 #| label: "load"
 #| include: false
 #| message: false
 #| warning: false
-library(mda)
+library(bcn)
 library(tidymodels)
 
-pkgs <- c("tidymodels", "mda", "modeldata")
+pkgs <- c("tidymodels", "bcn", "modeldata")
 
 theme_set(theme_bw() + theme(legend.position = "top"))
 ```
@@ -47,14 +57,14 @@ This article describes the process of creating a new model function. Before proc
 
 ## An example model
 
-As an example, we'll create a function for _mixture discriminant analysis_. There are [a few packages](http://search.r-project.org/cgi-bin/namazu.cgi?query=%22mixture+discriminant%22&max=100&result=normal&sort=score&idxname=functions) that implement this but we'll focus on `mda::mda`:
+As an example, we'll create a function for _mixture discriminant analysis_. There are [a few packages](http://search.r-project.org/cgi-bin/namazu.cgi?query=%22mixture+discriminant%22&max=100&result=normal&sort=score&idxname=functions) that implement this but we'll focus on `bcn::bcn`:
 
 ```{r}
-#| label: "mda-str"
-str(mda::mda)
+#| label: "bcn-str"
+str(bcn::bcn)
 ```
 
-The main hyperparameter is the number of subclasses. We'll name our function `discrim_mixture`. 
+The main hyperparameter is the number of subclasses. We'll name our function `bcn_model`. 
 
 ## Aspects of models
 
@@ -76,26 +86,26 @@ If you are adding a new model from your own package, you can use these functions
 
 ### Step 1. Register the model, modes, and arguments
 
-We will add the MDA model using the model type `discrim_mixture`. Since this is a classification method, we only have to register a single mode:
+We will add the bcn model using the model type `bcn_model`. Since this is a classification method, we only have to register a single mode:
 
 ```{r}
-#| label: "mda-reg"
+#| label: "bcn-reg"
 library(tidymodels)
-set_new_model("discrim_mixture")
-set_model_mode(model = "discrim_mixture", mode = "classification")
+set_new_model("bcn_model")
+set_model_mode(model = "bcn_model", mode = "classification")
 set_model_engine(
-  "discrim_mixture", 
+  "bcn_model", 
   mode = "classification", 
-  eng = "mda"
+  eng = "bcn"
 )
-set_dependency("discrim_mixture", eng = "mda", pkg = "mda")
+set_dependency("bcn_model", eng = "bcn", pkg = "bcn")
 ```
 
 These functions should silently finish. There is also a function that can be used to show what aspects of the model have been added to parsnip: 
 
 ```{r}
-#| label: "mda-show-1"
-show_model_info("discrim_mixture")
+#| label: "bcn-show-1"
+show_model_info("bcn_model")
 ```
 
 The next step would be to declare the main arguments to the model. These are declared independent of the mode.  To specify the argument, there are a few slots to fill in:
@@ -108,19 +118,19 @@ The next step would be to declare the main arguments to the model. These are dec
  
  * A logical value for whether the argument can be used to generate multiple predictions for a single R object. For example, for boosted trees, if a model is fit with 10 boosting iterations, many modeling packages allow the model object to make predictions for any iterations less than the one used to fit the model. In general this is not the case so one would use `has_submodels = FALSE`. 
  
-For `mda::mda()`, the main tuning parameter is `subclasses` which we will rewrite as `sub_classes`. 
+For `bcn::bcn()`, the main tuning parameter is `subclasses` which we will rewrite as `sub_classes`. 
 
 ```{r}
-#| label: "mda-args"
+#| label: "bcn-args"
 set_model_arg(
-  model = "discrim_mixture",
-  eng = "mda",
+  model = "bcn_model",
+  eng = "bcn",
   parsnip = "sub_classes",
   original = "subclasses",
   func = list(pkg = "foo", fun = "bar"),
   has_submodel = FALSE
 )
-show_model_info("discrim_mixture")
+show_model_info("bcn_model")
 ```
 
 ### Step 2. Create the model function
@@ -135,7 +145,7 @@ A basic version of the function is:
 
 ```{r}
 #| label: "model-fun"
-discrim_mixture <-
+bcn_model <-
   function(mode = "classification",  sub_classes = NULL) {
     # Check for correct mode
     if (mode  != "classification") {
@@ -147,7 +157,7 @@ discrim_mixture <-
     
     # Save some empty slots for future parts of the specification
     new_model_spec(
-      "discrim_mixture",
+      "bcn_model",
       args = args,
       eng_args = NULL,
       mode = mode,
@@ -167,7 +177,7 @@ This is pretty simple since the data are not exposed to this function.
 
 Now that parsnip knows about the model, mode, and engine, we can give it the information on fitting the model for our engine. The information needed to fit the model is contained in another list. The elements are:
 
- * `interface` is a single character value that could be "formula", "data.frame", or "matrix". This defines the type of interface used by the underlying fit function (`mda::mda`, in this case). This helps the translation of the data to be in an appropriate format for the that function. 
+ * `interface` is a single character value that could be "formula", "data.frame", or "matrix". This defines the type of interface used by the underlying fit function (`bcn::bcn`, in this case). This helps the translation of the data to be in an appropriate format for the that function. 
  
  * `protect` is an optional list of function arguments that **should not be changeable** by the user. In this case, we probably don't want users to pass data values to these arguments (until the `fit()` function is called).
  
@@ -180,18 +190,18 @@ For the first engine:
 ```{r}
 #| label: "fit-mod"
 set_fit(
-  model = "discrim_mixture",
-  eng = "mda",
+  model = "bcn_model",
+  eng = "bcn",
   mode = "classification",
   value = list(
     interface = "formula",
     protect = c("formula", "data"),
-    func = c(pkg = "mda", fun = "mda"),
+    func = c(pkg = "bcn", fun = "bcn"),
     defaults = list()
   )
 )
 
-show_model_info("discrim_mixture")
+show_model_info("bcn_model")
 ```
 
 We also set up the information on how the predictors should be handled. These options ensure that the data that parsnip gives to the underlying model allows for a model fit that is as similar as possible to what it would have produced directly.
@@ -206,8 +216,8 @@ We also set up the information on how the predictors should be handled. These op
 
 ```{r}
 set_encoding(
-  model = "discrim_mixture",
-  eng = "mda",
+  model = "bcn_model",
+  eng = "bcn",
   mode = "classification",
   options = list(
     predictor_indicators = "traditional",
@@ -225,7 +235,7 @@ Similar to the fitting module, we specify the code for making different types of
 
  * `pre` and `post` are optional functions that can preprocess the data being fed to the prediction code and to postprocess the raw output of the predictions. These won't be needed for this example, but a section below has examples of how these can be used when the model code is not easy to use. If the data being predicted has a simple type requirement, you can avoid using a `pre` function with the `args` below. 
  * `func` is the prediction function (in the same format as above). In many cases, packages have a predict method for their model's class but this is typically not exported. In this case (and the example below), it is simple enough to make a generic call to `predict()` with no associated package. 
- * `args` is a list of arguments to pass to the prediction function. These will most likely be wrapped in `rlang::expr()` so that they are not evaluated when defining the method. For mda, the code would be `predict(object, newdata, type = "class")`. What is actually given to the function is the parsnip model fit object, which includes a sub-object called `fit()` that houses the mda model object. If the data need to be a matrix or data frame, you could also use `newdata = quote(as.data.frame(newdata))` or similar. 
+ * `args` is a list of arguments to pass to the prediction function. These will most likely be wrapped in `rlang::expr()` so that they are not evaluated when defining the method. For bcn, the code would be `predict(object, newdata, type = "class")`. What is actually given to the function is the parsnip model fit object, which includes a sub-object called `fit()` that houses the bcn model object. If the data need to be a matrix or data frame, you could also use `newdata = quote(as.data.frame(newdata))` or similar. 
 
 The parsnip prediction code will expect the result to be an unnamed character string or factor. This will be coerced to a factor with the same levels as the original data.  
 
@@ -240,7 +250,7 @@ class_info <-
     func = c(fun = "predict"),
     args =
       # These lists should be of the form:
-      # {predict.mda argument name} = {values provided from parsnip objects}
+      # {predict.bcn argument name} = {values provided from parsnip objects}
       list(
         # We don't want the first two arguments evaluated right now
         # since they don't exist yet. `type` is a simple object that
@@ -252,8 +262,8 @@ class_info <-
   )
 
 set_pred(
-  model = "discrim_mixture",
-  eng = "mda",
+  model = "bcn_model",
+  eng = "bcn",
   mode = "classification",
   type = "class",
   value = class_info
@@ -262,12 +272,12 @@ set_pred(
 
 A similar call can be used to define the class probability module (if they can be computed). The format is identical to the `class` module but the output is expected to be a tibble with columns for each factor level. 
 
-As an example of the `post` function, the data frame created by `mda:::predict.mda()` will be converted to a tibble. The arguments are `x` (the raw results coming from the predict method) and `object` (the parsnip model fit object). The latter has a sub-object called `lvl` which is a character string of the outcome's factor levels (if any). 
+As an example of the `post` function, the data frame created by `bcn:::predict.bcn()` will be converted to a tibble. The arguments are `x` (the raw results coming from the predict method) and `object` (the parsnip model fit object). The latter has a sub-object called `lvl` which is a character string of the outcome's factor levels (if any). 
 
 We register the probability module. There is a template function that makes this slightly easier to format the objects:
 
 ```{r}
-#| label: "mda-prob"
+#| label: "bcn-prob"
 prob_info <-
   pred_value_template(
     post = function(x, object) {
@@ -281,14 +291,14 @@ prob_info <-
   )
 
 set_pred(
-  model = "discrim_mixture",
-  eng = "mda",
+  model = "bcn_model",
+  eng = "bcn",
   mode = "classification",
   type = "prob",
   value = prob_info
 )
 
-show_model_info("discrim_mixture")
+show_model_info("bcn_model")
 ```
 
 If this model could be used for regression situations, we could also add a "numeric" module. For `pred`, the model requires an unnamed numeric vector output (usually). 
@@ -303,32 +313,32 @@ As a developer, one thing that may come in handy is the `translate()` function. 
 For example:
 
 ```{r}
-#| label: "mda-code"
-discrim_mixture(sub_classes = 2) %>%
-  translate(engine = "mda")
+#| label: "bcn-code"
+bcn_model(sub_classes = 2) %>%
+  translate(engine = "bcn")
 ```
 
 Let's try it on a data set from the modeldata package:
 
 ```{r}
-#| label: "mda-data"
+#| label: "bcn-data"
 data("two_class_dat", package = "modeldata")
 set.seed(4622)
 example_split <- initial_split(two_class_dat, prop = 0.99)
 example_train <- training(example_split)
 example_test  <-  testing(example_split)
 
-mda_spec <- discrim_mixture(sub_classes = 2) %>% 
-  set_engine("mda")
+bcn_spec <- bcn_model(sub_classes = 2) %>% 
+  set_engine("bcn")
 
-mda_fit <- mda_spec %>%
-  fit(Class ~ ., data = example_train, engine = "mda")
-mda_fit
+bcn_fit <- bcn_spec %>%
+  fit(Class ~ ., data = example_train, engine = "bcn")
+bcn_fit
 
-predict(mda_fit, new_data = example_test, type = "prob") %>%
+predict(bcn_fit, new_data = example_test, type = "prob") %>%
   bind_cols(example_test %>% select(Class))
 
-predict(mda_fit, new_data = example_test) %>% 
+predict(bcn_fit, new_data = example_test) %>% 
  bind_cols(example_test %>% select(Class))
 ```
 
@@ -400,10 +410,10 @@ The first difference is that the functions that define the model must be inside 
 
 ```{r}
 #| eval: false
-make_discrim_mixture_mda <- function() {
-  parsnip::set_new_model("discrim_mixture")
+make_bcn_model_bcn <- function() {
+  parsnip::set_new_model("bcn_model")
 
-  parsnip::set_model_mode("discrim_mixture", "classification")
+  parsnip::set_model_mode("bcn_model", "classification")
 
   # and so one...
 }
@@ -414,8 +424,8 @@ This function is then executed when your package is loaded:
 ```{r}
 #| eval: false
 .onLoad <- function(libname, pkgname) {
-  # This defines discrim_mixture in the model database
-  make_discrim_mixture_mda()
+  # This defines bcn_model in the model database
+  make_bcn_model_bcn()
 }
 ```
 
@@ -425,10 +435,10 @@ For an example package that uses parsnip definitions, take a look at the [discri
  To use a new model and/or engine in the broader tidymodels infrastructure, we recommend your model definition declarations (e.g. `set_new_model()` and similar) reside in a package. If these definitions are in a script only, the new model may not work with the tune package, for example for parallel processing. 
 :::
 
-It is also important for parallel processing support to **list the home package as a dependency**. If the `discrim_mixture()` function lived in a package called `mixedup`, include the line:
+It is also important for parallel processing support to **list the home package as a dependency**. If the `bcn_model()` function lived in a package called `mixedup`, include the line:
 
 ```r
-set_dependency("discrim_mixture", eng = "mda", pkg = "mixedup")
+set_dependency("bcn_model", eng = "bcn", pkg = "mixedup")
 ```
 
 Parallel processing requires this explicit dependency setting. When parallel worker processes are created, there is heterogeneity across technologies regarding which packages are loaded. Multicore methods on macOS and Linux will load all of the packages that were loaded in the main R process. However, parallel processing using psock clusters have no additional packages loaded. If the home package for a parsnip model is not loaded in the worker processes, the model will not have an entry in parsnip's internal database (and produce an error). 
@@ -436,7 +446,7 @@ Parallel processing requires this explicit dependency setting. When parallel wor
 
 ## Your model, tuning parameters, and you
 
-The tune package can be used to find reasonable values of model arguments via tuning. There are some S3 methods that are useful to define for your model. `discrim_mixture()` has one main tuning parameter: `sub_classes`. To work with tune it is _helpful_ (but not required) to use an S3 method called `tunable()` to define which arguments should be tuned and how values of those arguments should be generated. 
+The tune package can be used to find reasonable values of model arguments via tuning. There are some S3 methods that are useful to define for your model. `bcn_model()` has one main tuning parameter: `sub_classes`. To work with tune it is _helpful_ (but not required) to use an S3 method called `tunable()` to define which arguments should be tuned and how values of those arguments should be generated. 
 
 `tunable()` takes the model specification as its argument and returns a tibble with columns: 
 
@@ -446,7 +456,7 @@ The tune package can be used to find reasonable values of model arguments via tu
 
 * `source`: A character string that indicates where the tuning value comes from (i.e., a model, a recipe etc.). Here, it is just `"model_spec"`. 
 
-* `component`: A character string with more information about the source. For models, this is just the name of the function (e.g. `"discrim_mixture"`). 
+* `component`: A character string with more information about the source. For models, this is just the name of the function (e.g. `"bcn_model"`). 
 
 * `component_id`: A character string to indicate where a unique identifier is for the object. For a model, this is indicates the type of model argument (e.g. "main").  
 
@@ -463,7 +473,7 @@ new_param_call <- rlang::call2(.fn = info$fun, .ns = info$pkg)
 rlang::eval_tidy(new_param_call)
 ```
 
-For `discrim_mixture()`, a dials object is needed that returns an integer that is the number of sub-classes that should be create. We can create a dials parameter function for this:
+For `bcn_model()`, a dials object is needed that returns an integer that is the number of sub-classes that should be create. We can create a dials parameter function for this:
 
 ```{r}
 #| label: "sub-classes"
@@ -483,12 +493,12 @@ If this were in the dials package, we could use:
 
 ```{r}
 #| label: "tunable"
-tunable.discrim_mixture <- function(x, ...) {
+tunable.bcn_model <- function(x, ...) {
   tibble::tibble(
     name = c("sub_classes"),
     call_info = list(list(pkg = NULL, fun = "sub_classes")),
     source = "model_spec",
-    component = "discrim_mixture",
+    component = "bcn_model",
     component_id = "main"
   )
 }
@@ -497,17 +507,17 @@ tunable.discrim_mixture <- function(x, ...) {
 Once this method is in place, the tuning functions can be used: 
 
 ```{r}
-#| label: "tune-mda"
+#| label: "tune-bcn"
 #| message: false
-mda_spec <- 
-  discrim_mixture(sub_classes = tune()) %>% 
-  set_engine("mda")
+bcn_spec <- 
+  bcn_model(sub_classes = tune()) %>% 
+  set_engine("bcn")
 
 set.seed(452)
 cv <- vfold_cv(example_train)
-mda_tune_res <- mda_spec %>%
+bcn_tune_res <- bcn_spec %>%
   tune_grid(Class ~ ., cv, grid = 4)
-show_best(mda_tune_res, metric = "roc_auc")
+show_best(bcn_tune_res, metric = "roc_auc")
 ```
 
 
